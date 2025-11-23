@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>DhakaCart</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 50px; }
+        .status { padding: 20px; background: #e0f7fa; display: inline-block; border-radius: 8px; }
+    </style>
+</head>
+<body>
+    <h1>🛒 DhakaCart Eid Sale</h1>
+    <div class="status">
+        <p>System Status: <strong>Operational</strong></p>
+        <p>Backend Connection: <span id="api-status">Checking...</span></p>
+    </div>
+    <script>
+        fetch('http://localhost:5000/')
+            .then(res => res.json())
+            .then(data => document.getElementById('api-status').innerText = data.message)
+            .catch(err => document.getElementById('api-status').innerText = "Failed to connect (Check Console)");
+    </script>
+</body>
+</html>

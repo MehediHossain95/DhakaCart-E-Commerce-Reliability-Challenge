@@ -1,0 +1,7 @@
+{
+  "name": "dhakacart-frontend",
+  "version": "0.1.0",
+  "scripts": {
+    "build": "mkdir -p build && cp -r public/* build/"
+  }
+}
