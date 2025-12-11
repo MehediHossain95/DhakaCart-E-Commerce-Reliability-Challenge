@@ -161,18 +161,20 @@ jobs:
       
       - name: Send Deployment Success Notification
         if: success()
-        uses: 8398a7/action-slack@v3
-        with:
-          status: ${{ job.status }}
-          text: 'DhakaCart deployment successful'
-          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
-          fields: repo,message,commit,author
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+        run: |
+          if [ -n "$SLACK_WEBHOOK" ]; then
+            curl -X POST $SLACK_WEBHOOK -H 'Content-Type: application/json' \
+              -d '{"text": "✅ DhakaCart deployment successful"}'
+          fi
       
       - name: Send Deployment Failure Notification
         if: failure()
-        uses: 8398a7/action-slack@v3
-        with:
-          status: ${{ job.status }}
-          text: 'DhakaCart deployment failed - Check logs'
-          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
-          fields: repo,message,commit,author
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+        run: |
+          if [ -n "$SLACK_WEBHOOK" ]; then
+            curl -X POST $SLACK_WEBHOOK -H 'Content-Type: application/json' \
+              -d '{"text": "❌ DhakaCart deployment failed - Check logs"}'
+          fi
