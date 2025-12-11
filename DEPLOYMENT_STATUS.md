@@ -11,28 +11,28 @@ Your DhakaCart infrastructure has been successfully deployed to AWS ap-southeast
 
 **EC2 Instance**:
 
-- Instance ID: `i-0f0b59325ca0c4508`
+- Instance ID: `i-026176c0e48b73f8d`
 - Instance Type: `t2.micro`
 - State: **RUNNING** ✅
-- Public IP: **54.254.42.92**
+- Public IP: **54.169.72.186**
 - Region: `ap-southeast-1` (Singapore)
 - Name: `DhakaCart-K3s-Server`
 
 **Network Infrastructure**:
 
-- VPC ID: `vpc-09d9ffd7a7036b6c9`
+- VPC ID: `vpc-093f13954065e448b`
 - VPC CIDR: `10.0.0.0/16`
-- Public Subnet: `subnet-00c30755adc15944d`
+- Public Subnet: `subnet-01026c6e33455b002`
 - Subnet CIDR: `10.0.1.0/24`
 - Availability Zone: `ap-southeast-1a`
-- Internet Gateway: `igw-0373e6afe465e5005`
-- Route Table: `rtb-0b5400df58c716b93`
+- Internet Gateway: `igw-02b978adb1ec45ec5`
+- Route Table: `rtb-06dbc9d6e8ce7df55`
 
 **Security**:
 
-- Security Group: `sg-06ba466d52f03c410`
-- Key Pair: `dhakacart-key`
-- SSH Access: Enabled (port 22)
+- Security Group: `sg-0a66eb77a06358ed9`
+- Key Pair: `dhakacart-key` (regenerated)
+- SSH Access: Enabled (port 22) ✅
 - HTTP Access: Enabled (port 80)
 - HTTPS Access: Enabled (port 443)
 - Kubernetes API: Enabled (port 6443)
@@ -43,20 +43,23 @@ Your DhakaCart infrastructure has been successfully deployed to AWS ap-southeast
 |-----------|--------|------|
 | VPC Creation | ✅ Complete | 17s |
 | Internet Gateway | ✅ Complete | 5s |
-| Subnet Creation | ✅ Complete | 16s |
-| Route Table | ✅ Complete | 3s |
-| Security Group | ✅ Complete | 8s |
+| Subnet Creation | ✅ Complete | 12s |
+| Route Table | ✅ Complete | 4s |
+| Security Group | ✅ Complete | 5s |
 | Key Pair | ✅ Complete | 3s |
-| EC2 Instance Launch | ✅ Complete | 26s |
+| EC2 Instance Launch | ✅ Complete | 27s |
 | **Total Infrastructure** | ✅ Complete | **2 minutes** |
-| K3s Installation | ⏳ In Progress | **5-10 minutes** |
+| K3s Installation | ✅ Complete | **5-10 minutes** |
+| Kubernetes Manifests | ✅ Created | - |
+| Backend Deployment | ⏳ Pending | - |
+| Frontend Deployment | ⏳ Pending | - |
 
 ## Accessing Your Instance
 
 ### SSH Access
 
 ```bash
-ssh -i ~/.ssh/dhakacart-key.pem ubuntu@54.254.42.92
+ssh -i ~/.ssh/dhakacart-key ubuntu@54.169.72.186
 ```
 
 ### Verify K3s Installation
@@ -71,7 +74,7 @@ sudo journalctl -u k3s -f
 # Check K3s version (once ready)
 sudo /usr/local/bin/k3s --version
 
-# Get kubeconfig
+# Get kubeconfig (already available locally at ~/.kube/dhakacart-k3s.yaml)
 cat /home/ubuntu/k3s.yaml
 ```
 
