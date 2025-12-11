@@ -2,8 +2,15 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: dhakacart-backend
+  labels:
+    app: backend
 spec:
-  replicas: 2               # Run 2 copies for high availability
+  replicas: 3               # Run 3 copies for high availability
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0     # Zero downtime deployments
   selector:
     matchLabels:
       app: backend
@@ -12,27 +19,71 @@ spec:
       labels:
         app: backend
     spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - backend
+              topologyKey: kubernetes.io/hostname
       containers:
       - name: backend
-        # In a real setup, this would be: your-dockerhub-username/backend:v1
         image: dhakacart-backend:latest 
-        imagePullPolicy: Never  # Use the local image we just built
+        imagePullPolicy: Never
         ports:
         - containerPort: 5000
+          name: http
         env:
         - name: PORT
           value: "5000"
+        - name: NODE_ENV
+          value: "production"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 2
+          failureThreshold: 2
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          readOnlyRootFilesystem: true
 
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: dhakacart-backend-service
+  labels:
+    app: backend
 spec:
   selector:
     app: backend
   ports:
     - protocol: TCP
-      port: 5000           # The port other pods see
-      targetPort: 5000     # The port the container is listening on
-  type: ClusterIP          # Internal access only (Secure)
+      port: 5000
+      targetPort: 5000
+      name: http
+  type: ClusterIP

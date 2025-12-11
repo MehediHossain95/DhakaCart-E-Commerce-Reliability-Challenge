@@ -102,7 +102,7 @@ resource "aws_security_group" "k3s_sg" {
 # 7. Import SSH Key Pair
 resource "aws_key_pair" "dhakacart_key" {
   key_name   = "dhakacart-key"
-  public_key = file("/home/poridhian/code/DhakaCart-Final-Project/dhakacart-key.pub")
+  public_key = file("${path.module}/../dhakacart-key.pub")
 }
 # 8. K3s Installation Script
 resource "local_file" "setup_script" {

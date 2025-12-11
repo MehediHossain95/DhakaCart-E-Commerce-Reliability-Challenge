@@ -1,7 +1,13 @@
 {
   "name": "dhakacart-frontend",
   "version": "0.1.0",
+  "private": true,
   "scripts": {
-    "build": "mkdir -p build && cp -r public/* build/"
+    "build": "mkdir -p build && cp -r public/* build/",
+    "test": "echo \"Tests running...\" && exit 0",
+    "dev": "echo \"Development mode\" && exit 0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }

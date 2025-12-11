@@ -15,10 +15,16 @@
         <p>Backend Connection: <span id="api-status">Checking...</span></p>
     </div>
     <script>
-        fetch('http://localhost:5000/')
+        // Use environment-based API URL for flexibility across environments
+        const apiUrl = window.API_URL || `${window.location.protocol}//${window.location.hostname}:5000`;
+        
+        fetch(`${apiUrl}/`)
             .then(res => res.json())
             .then(data => document.getElementById('api-status').innerText = data.message)
-            .catch(err => document.getElementById('api-status').innerText = "Failed to connect (Check Console)");
+            .catch(err => {
+                console.error('API Connection Error:', err);
+                document.getElementById('api-status').innerText = "Failed to connect";
+            });
     </script>
 </body>
 </html>
