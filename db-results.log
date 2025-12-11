@@ -1,0 +1,7 @@
+==================================================
+🗄️  DhakaCart Database Management
+==================================================
+
+📦 Creating database backup...
+Creating snapshot: dhakacart-backup-20251211-101607
+./db-backup.sh: line 28: aws: command not found

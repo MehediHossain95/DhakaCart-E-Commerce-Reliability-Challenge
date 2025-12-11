@@ -1,0 +1,16 @@
+[2025-12-11 10:16:07] Health Check
+✓ PASS: API is responding
+[2025-12-11 10:16:07] Input Validation - Short Username
+✗ FAIL: Expected 400 status code, got 429
+[2025-12-11 10:16:07] Input Validation - Special Characters
+✗ FAIL: Should reject special characters
+[2025-12-11 10:16:07] Input Validation - Missing Password
+✗ FAIL: Should require password field
+[2025-12-11 10:16:07] Input Validation - Short Password
+✗ FAIL: Should validate password length
+[2025-12-11 10:16:07] Authentication - Valid Login
+✗ FAIL: Login failed with status 429
+[2025-12-11 10:16:07] Authentication - Invalid Credentials
+✗ FAIL: Should return 401 for invalid credentials
+[2025-12-11 10:16:07] Rate Limiting - Global Limiter (100 requests/15min)
+[INFO] Making 101 requests to trigger rate limit...
