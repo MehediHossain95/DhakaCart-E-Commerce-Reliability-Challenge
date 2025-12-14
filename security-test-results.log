@@ -1,16 +1,17 @@
-[2025-12-11 10:16:07] Health Check
+[2025-12-14 12:00:46] Health Check
 ✓ PASS: API is responding
-[2025-12-11 10:16:07] Input Validation - Short Username
-✗ FAIL: Expected 400 status code, got 429
-[2025-12-11 10:16:07] Input Validation - Special Characters
-✗ FAIL: Should reject special characters
-[2025-12-11 10:16:07] Input Validation - Missing Password
-✗ FAIL: Should require password field
-[2025-12-11 10:16:07] Input Validation - Short Password
-✗ FAIL: Should validate password length
-[2025-12-11 10:16:07] Authentication - Valid Login
-✗ FAIL: Login failed with status 429
-[2025-12-11 10:16:07] Authentication - Invalid Credentials
-✗ FAIL: Should return 401 for invalid credentials
-[2025-12-11 10:16:07] Rate Limiting - Global Limiter (100 requests/15min)
+[2025-12-14 12:00:46] Input Validation - Short Username
+✓ PASS: Validates username length
+[2025-12-14 12:00:46] Input Validation - Special Characters
+✓ PASS: Rejects special characters in username
+[2025-12-14 12:00:46] Input Validation - Missing Password
+✓ PASS: Validates required password field
+[2025-12-14 12:00:46] Input Validation - Short Password
+✓ PASS: Validates password minimum length
+[2025-12-14 12:00:46] Authentication - Valid Login
+✓ PASS: Successfully obtained JWT token
+[INFO] Token (first 50 chars): eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...
+[2025-12-14 12:00:46] Authentication - Invalid Credentials
+✓ PASS: Rejects invalid credentials
+[2025-12-14 12:00:46] Rate Limiting - Global Limiter (100 requests/15min)
 [INFO] Making 101 requests to trigger rate limit...

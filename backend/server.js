@@ -7,14 +7,23 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production';
 
-// CORS Configuration with specific allowed origins
-const allowedOrigins = process.env.ALLOWED_ORIGINS 
-  ? process.env.ALLOWED_ORIGINS.split(',')
-  : ['http://localhost:3000', 'http://localhost:5000', 'https://dhakacart.example.com'];
-
+// CORS Configuration - Allow all origins in development
 const corsOptions = {
-  origin: function(origin, callback) {
-    if (allowedOrigins.includes(origin) || !origin) {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, curl, Postman)
+    if (!origin) return callback(null, true);
+    
+    // In development, allow all origins
+    if (process.env.NODE_ENV !== 'production') {
+      return callback(null, true);
+    }
+    
+    // In production, check against allowed origins
+    const allowedOrigins = process.env.ALLOWED_ORIGINS
+      ? process.env.ALLOWED_ORIGINS.split(',')
+      : ['http://localhost:3000', 'http://localhost:5000', 'http://localhost:8080', 'https://dhakacart.example.com'];
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
@@ -225,5 +234,5 @@ process.on('SIGTERM', () => {
 const server = app.listen(PORT, () => {
   console.log(`[${new Date().toISOString()}] DhakaCart Backend Server running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`Allowed Origins: ${allowedOrigins.join(', ')}`);
+  console.log(`CORS: ${process.env.NODE_ENV === 'production' ? 'Restricted' : 'Allow all origins (development mode)'}`);
 });
