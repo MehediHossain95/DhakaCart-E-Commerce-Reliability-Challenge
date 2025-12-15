@@ -1,8 +1,0 @@
-==================================================
-🗄️  DhakaCart Database Management
-==================================================
-
-📦 Creating database backup...
-Creating snapshot: dhakacart-backup-20251214-120046
-
-An error occurred (InvalidClientTokenId) when calling the CreateDBSnapshot operation: The security token included in the request is invalid.
