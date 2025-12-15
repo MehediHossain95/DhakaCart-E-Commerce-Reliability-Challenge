@@ -147,3 +147,24 @@ resource "aws_instance" "k3s_node" {
     Name = "DhakaCart-K3s-Server"
   }
 }
+
+# Outputs
+output "instance_id" {
+  description = "EC2 Instance ID"
+  value       = aws_instance.k3s_node.id
+}
+
+output "instance_public_ip" {
+  description = "Public IP address of the EC2 instance"
+  value       = aws_instance.k3s_node.public_ip
+}
+
+output "ssh_command" {
+  description = "SSH command to connect to the instance"
+  value       = "ssh -i ../dhakacart-key ubuntu@${aws_instance.k3s_node.public_ip}"
+}
+
+output "application_url" {
+  description = "Application URL"
+  value       = "http://${aws_instance.k3s_node.public_ip}"
+}

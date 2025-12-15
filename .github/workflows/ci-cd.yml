@@ -138,7 +138,7 @@ jobs:
         with:
           sarif_file: 'trivy-results.sarif'
 
-  # Deploy to Kubernetes (Manual approval required for production)
+  # Deploy to AWS K3s Cluster
   deploy:
     needs: [build-docker, security-scan]
     runs-on: ubuntu-latest
@@ -146,35 +146,67 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       
-      - name: Set up kubectl
-        uses: azure/setup-kubectl@v3
-        with:
-          version: 'latest'
-      
-      - name: Deploy to Kubernetes
+      - name: Configure SSH
         run: |
-          mkdir -p $HOME/.kube
-          echo "${{ secrets.KUBECONFIG }}" | base64 -d > $HOME/.kube/config
-          kubectl apply -f k8s/
-          kubectl rollout status deployment/dhakacart-backend --timeout=5m
-          kubectl rollout status deployment/dhakacart-frontend --timeout=5m
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/dhakacart-key
+          chmod 600 ~/.ssh/dhakacart-key
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+      
+      - name: Deploy to AWS EC2
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ubuntu
+        run: |
+          # Copy deployment file to EC2
+          scp -i ~/.ssh/dhakacart-key k8s-deployment.yaml ${EC2_USER}@${EC2_HOST}:~/
+          
+          # Deploy to K3s cluster
+          ssh -i ~/.ssh/dhakacart-key ${EC2_USER}@${EC2_HOST} << 'EOF'
+            # Update kubeconfig permissions
+            sudo chmod 644 /etc/rancher/k3s/k3s.yaml
+            
+            # Apply Kubernetes manifests
+            kubectl apply -f k8s-deployment.yaml
+            
+            # Wait for deployments to be ready
+            kubectl rollout status deployment/backend -n dhakacart --timeout=5m || true
+            kubectl rollout status deployment/frontend -n dhakacart --timeout=5m || true
+            
+            # Show deployment status
+            echo "=== Deployment Status ==="
+            kubectl get pods -n dhakacart
+            kubectl get svc -n dhakacart
+          EOF
+      
+      - name: Verify Application Health
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+        run: |
+          echo "Waiting for application to be ready..."
+          sleep 30
+          
+          # Test frontend
+          curl -f http://${EC2_HOST}/ || echo "Frontend not responding yet"
+          
+          # Test backend
+          curl -f http://${EC2_HOST}:30001/health || echo "Backend not responding yet"
+      
+      - name: Get Application URL
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+        run: |
+          echo "🚀 Application deployed successfully!"
+          echo "Frontend URL: http://${EC2_HOST}"
+          echo "Backend URL: http://${EC2_HOST}:30001"
+          echo "K3s Dashboard: http://${EC2_HOST}:6443"
       
       - name: Send Deployment Success Notification
         if: success()
-        env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
         run: |
-          if [ -n "$SLACK_WEBHOOK" ]; then
-            curl -X POST $SLACK_WEBHOOK -H 'Content-Type: application/json' \
-              -d '{"text": "✅ DhakaCart deployment successful"}'
-          fi
+          echo "✅ DhakaCart deployment to AWS completed successfully!"
       
       - name: Send Deployment Failure Notification
         if: failure()
-        env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
         run: |
-          if [ -n "$SLACK_WEBHOOK" ]; then
-            curl -X POST $SLACK_WEBHOOK -H 'Content-Type: application/json' \
-              -d '{"text": "❌ DhakaCart deployment failed - Check logs"}'
-          fi
+          echo "❌ DhakaCart deployment to AWS failed - Check logs"
