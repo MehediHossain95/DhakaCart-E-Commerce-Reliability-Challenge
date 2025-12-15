@@ -71,7 +71,7 @@ jobs:
         with:
           context: ./backend
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:latest
+          tags: ghcr.io/mehedihossain95/dhakacart-backend:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
       
@@ -80,7 +80,7 @@ jobs:
         with:
           context: ./frontend
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:latest
+          tags: ghcr.io/mehedihossain95/dhakacart-frontend:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
