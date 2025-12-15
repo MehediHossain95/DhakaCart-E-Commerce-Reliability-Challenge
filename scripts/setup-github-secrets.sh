@@ -1,0 +1,55 @@
+#!/bin/bash
+
+echo "======================================"
+echo "GitHub Secrets Setup for DhakaCart"
+echo "======================================"
+echo ""
+echo "You need to configure the following secrets in your GitHub repository:"
+echo "Repository Settings > Secrets and variables > Actions > New repository secret"
+echo ""
+echo "1. EC2_HOST"
+echo "   Value: 18.143.130.128"
+echo ""
+echo "2. SSH_PRIVATE_KEY"
+echo "   Value: (copy the entire content below)"
+echo ""
+echo "--- BEGIN SSH PRIVATE KEY ---"
+cat dhakacart-key
+echo "--- END SSH PRIVATE KEY ---"
+echo ""
+echo "======================================"
+echo "Testing Requirements"
+echo "======================================"
+echo ""
+
+# Test SSH connection
+echo "✓ Testing SSH connection to EC2..."
+ssh -i dhakacart-key -o ConnectTimeout=5 -o StrictHostKeyChecking=no ubuntu@18.143.130.128 "echo 'SSH connection successful'" 2>/dev/null && echo "✓ SSH working" || echo "✗ SSH failed"
+
+# Test Docker on EC2
+echo "✓ Testing Docker on EC2..."
+ssh -i dhakacart-key -o StrictHostKeyChecking=no ubuntu@18.143.130.128 "sudo docker --version" 2>/dev/null && echo "✓ Docker working" || echo "✗ Docker not found"
+
+# Test application
+echo "✓ Testing application..."
+curl -s http://18.143.130.128 > /dev/null && echo "✓ Application accessible" || echo "✗ Application not accessible"
+
+echo ""
+echo "======================================"
+echo "CI/CD Workflow Status"
+echo "======================================"
+echo ""
+echo "Workflow file: .github/workflows/ci-cd.yml"
+echo "Trigger: Push to main branch"
+echo ""
+echo "Jobs:"
+echo "  1. test-backend  - Run backend tests"
+echo "  2. test-frontend - Build and test frontend"
+echo "  3. build-docker  - Build and push Docker images to GHCR"
+echo "  4. deploy        - Deploy to EC2 via SSH"
+echo ""
+echo "To trigger deployment:"
+echo "  git add ."
+echo "  git commit -m 'Update deployment'"
+echo "  git push origin main"
+echo ""
