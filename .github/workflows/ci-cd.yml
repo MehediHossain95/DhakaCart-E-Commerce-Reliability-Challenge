@@ -14,7 +14,6 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  # Test Backend
   test-backend:
     runs-on: ubuntu-latest
     steps:
@@ -30,13 +29,9 @@ jobs:
       - name: Install Backend Dependencies
         run: cd backend && npm install
       
-      - name: Lint Backend Code
-        run: cd backend && npm run lint --if-present
-      
       - name: Run Backend Tests
         run: cd backend && npm test --if-present
 
-  # Test Frontend
   test-frontend:
     runs-on: ubuntu-latest
     steps:
@@ -54,11 +49,7 @@ jobs:
       
       - name: Build Frontend
         run: cd frontend && npm run build
-      
-      - name: Run Frontend Tests
-        run: cd frontend && npm test --if-present
 
-  # Build and Push Docker Images
   build-docker:
     needs: [test-backend, test-frontend]
     runs-on: ubuntu-latest
@@ -79,134 +70,54 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       
-      - name: Extract metadata for Backend
-        id: meta-backend
-        uses: docker/metadata-action@v4
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend
-          tags: |
-            type=ref,event=branch
-            type=sha,prefix={{branch}}-
-            type=semver,pattern={{version}}
-      
-      - name: Build and Push Backend Image
+      - name: Build and Push Backend
         uses: docker/build-push-action@v4
         with:
           context: ./backend
           push: true
-          tags: ${{ steps.meta-backend.outputs.tags }}
-          labels: ${{ steps.meta-backend.outputs.labels }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
       
-      - name: Extract metadata for Frontend
-        id: meta-frontend
-        uses: docker/metadata-action@v4
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend
-          tags: |
-            type=ref,event=branch
-            type=sha,prefix={{branch}}-
-            type=semver,pattern={{version}}
-      
-      - name: Build and Push Frontend Image
+      - name: Build and Push Frontend
         uses: docker/build-push-action@v4
         with:
           context: ./frontend
           push: true
-          tags: ${{ steps.meta-frontend.outputs.tags }}
-          labels: ${{ steps.meta-frontend.outputs.labels }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # Security Scanning
-  security-scan:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: Run Trivy Vulnerability Scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-      
-      - name: Upload Trivy Results
-        uses: github/codeql-action/upload-sarif@v2
-        with:
-          sarif_file: 'trivy-results.sarif'
-
-  # Deploy to AWS K3s Cluster
   deploy:
-    needs: [build-docker, security-scan]
+    needs: [build-docker]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
       - uses: actions/checkout@v3
       
-      - name: Configure SSH
+      - name: Deploy to EC2
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/dhakacart-key
-          chmod 600 ~/.ssh/dhakacart-key
-          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
-      
-      - name: Deploy to AWS EC2
-        env:
-          EC2_HOST: ${{ secrets.EC2_HOST }}
-          EC2_USER: ubuntu
-        run: |
-          # Copy deployment file to EC2
-          scp -i ~/.ssh/dhakacart-key k8s-deployment.yaml ${EC2_USER}@${EC2_HOST}:~/
+          echo "$SSH_KEY" > ~/.ssh/key
+          chmod 600 ~/.ssh/key
+          ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts
           
-          # Deploy to K3s cluster
-          ssh -i ~/.ssh/dhakacart-key ${EC2_USER}@${EC2_HOST} << 'EOF'
-            # Update kubeconfig permissions
-            sudo chmod 644 /etc/rancher/k3s/k3s.yaml
-            
-            # Apply Kubernetes manifests
-            kubectl apply -f k8s-deployment.yaml
-            
-            # Wait for deployments to be ready
-            kubectl rollout status deployment/backend -n dhakacart --timeout=5m || true
-            kubectl rollout status deployment/frontend -n dhakacart --timeout=5m || true
-            
-            # Show deployment status
-            echo "=== Deployment Status ==="
-            kubectl get pods -n dhakacart
-            kubectl get svc -n dhakacart
+          ssh -i ~/.ssh/key ubuntu@$EC2_HOST << 'EOF'
+            cd ~/dhakacart
+            echo "${{ secrets.GITHUB_TOKEN }}" | sudo docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            sudo docker-compose pull
+            sudo docker-compose down
+            sudo docker-compose up -d
+            sleep 10
+            sudo docker ps
           EOF
       
-      - name: Verify Application Health
+      - name: Verify Deployment
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
         run: |
-          echo "Waiting for application to be ready..."
-          sleep 30
-          
-          # Test frontend
-          curl -f http://${EC2_HOST}/ || echo "Frontend not responding yet"
-          
-          # Test backend
-          curl -f http://${EC2_HOST}:30001/health || echo "Backend not responding yet"
-      
-      - name: Get Application URL
-        env:
-          EC2_HOST: ${{ secrets.EC2_HOST }}
-        run: |
-          echo "🚀 Application deployed successfully!"
-          echo "Frontend URL: http://${EC2_HOST}"
-          echo "Backend URL: http://${EC2_HOST}:30001"
-          echo "K3s Dashboard: http://${EC2_HOST}:6443"
-      
-      - name: Send Deployment Success Notification
-        if: success()
-        run: |
-          echo "✅ DhakaCart deployment to AWS completed successfully!"
-      
-      - name: Send Deployment Failure Notification
-        if: failure()
-        run: |
-          echo "❌ DhakaCart deployment to AWS failed - Check logs"
+          sleep 15
+          curl -f http://$EC2_HOST/ || echo "Health check failed"

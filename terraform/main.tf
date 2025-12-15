@@ -1,170 +1,197 @@
-# terraform/main.tf
+terraform {
+  required_version = ">= 1.0"
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
 
 provider "aws" {
   region = "ap-southeast-1"
 }
 
-# 1. Create the VPC (Virtual Data Center)
+# VPC Configuration
 resource "aws_vpc" "dhakacart_vpc" {
   cidr_block           = "10.0.0.0/16"
-  enable_dns_support   = true
   enable_dns_hostnames = true
+  enable_dns_support   = true
 
   tags = {
-    Name = "DhakaCart-VPC"
+    Name = "dhakacart-vpc"
   }
 }
 
-# 2. Create a Public Subnet (For Load Balancer)
-resource "aws_subnet" "public_subnet" {
-  vpc_id                  = aws_vpc.dhakacart_vpc.id
-  cidr_block              = "10.0.1.0/24"
-  map_public_ip_on_launch = true
-  availability_zone       = "ap-southeast-1a"
-
-  tags = {
-    Name = "DhakaCart-Public-Subnet"
-  }
-}
-
-# 3. Create an Internet Gateway (To allow internet access)
-resource "aws_internet_gateway" "igw" {
+# Internet Gateway
+resource "aws_internet_gateway" "dhakacart_igw" {
   vpc_id = aws_vpc.dhakacart_vpc.id
 
   tags = {
-    Name = "DhakaCart-IGW"
+    Name = "dhakacart-igw"
   }
 }
 
-# 4. Create a Route Table
-resource "aws_route_table" "public_rt" {
+# Public Subnet
+resource "aws_subnet" "dhakacart_public" {
+  vpc_id                  = aws_vpc.dhakacart_vpc.id
+  cidr_block              = "10.0.1.0/24"
+  availability_zone       = "ap-southeast-1a"
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name = "dhakacart-public-subnet"
+  }
+}
+
+# Route Table
+resource "aws_route_table" "dhakacart_public_rt" {
   vpc_id = aws_vpc.dhakacart_vpc.id
 
   route {
     cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.igw.id
+    gateway_id = aws_internet_gateway.dhakacart_igw.id
   }
 
   tags = {
-    Name = "DhakaCart-Public-RT"
+    Name = "dhakacart-public-rt"
   }
 }
 
-# 5. Associate Route Table with Subnet
-resource "aws_route_table_association" "public_assoc" {
-  subnet_id      = aws_subnet.public_subnet.id
-  route_table_id = aws_route_table.public_rt.id
+# Route Table Association
+resource "aws_route_table_association" "dhakacart_public_rta" {
+  subnet_id      = aws_subnet.dhakacart_public.id
+  route_table_id = aws_route_table.dhakacart_public_rt.id
 }
 
-# 6. Security Group (Firewall)
-resource "aws_security_group" "k3s_sg" {
+# Security Group
+resource "aws_security_group" "dhakacart_sg" {
+  name        = "dhakacart-security-group"
+  description = "Security group for DhakaCart application"
   vpc_id      = aws_vpc.dhakacart_vpc.id
-  name        = "dhakacart-k3s-sg"
-  description = "Allows SSH, HTTP, and K3s traffic"
 
-  # Inbound: SSH Access from Anywhere
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  # Inbound: HTTP (Frontend)
   ingress {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
+    description = "HTTP access"
   }
 
-  # Inbound: K3s API (Port 6443) - Strictly needed for kubectl access
   ingress {
-    from_port   = 6443
-    to_port     = 6443
+    from_port   = 443
+    to_port     = 443
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] 
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "HTTPS access"
   }
 
-  # Outbound: All Traffic Allowed
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "SSH access"
+  }
+
+  ingress {
+    from_port   = 5000
+    to_port     = 5000
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Backend API"
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
+    description = "All outbound traffic"
   }
 
   tags = {
-    Name = "DhakaCart-K3s-SG"
+    Name = "dhakacart-sg"
   }
 }
 
-# 7. Import SSH Key Pair
+# SSH Key Pair
 resource "aws_key_pair" "dhakacart_key" {
   key_name   = "dhakacart-key"
   public_key = file("${path.module}/../dhakacart-key.pub")
-}
-# 8. K3s Installation Script
-resource "local_file" "setup_script" {
-  content  = <<-EOT
-    #!/bin/bash
-    
-    # 1. Install K3s (Lightweight Kubernetes)
-    curl -sfL https://get.k3s.io | sh -
-    
-    # 2. Wait for K3s to be ready
-    echo "Waiting for K3s to start..."
-    while ! sudo systemctl is-active k3s; do
-      sleep 5
-    done
-    
-    # 3. Copy Kubeconfig to a readable location
-    sudo cp /etc/rancher/k3s/k3s.yaml /home/ubuntu/k3s.yaml
-    sudo chown ubuntu:ubuntu /home/ubuntu/k3s.yaml
-    
-    # 4. Remove the default 'localhost' from config for remote access
-    sed -i 's/127.0.0.1/$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)/g' /home/ubuntu/k3s.yaml
-    
-    echo "K3s installation complete. Kubeconfig is ready at /home/ubuntu/k3s.yaml"
-EOT
-  filename = "setup.sh"
-}
-
-# 9. EC2 Instance (Our single Kubernetes node)
-resource "aws_instance" "k3s_node" {
-  # Ubuntu 22.04 LTS HVM AMI in ap-southeast-1. 
-  ami                    = "ami-00d8fc944fb171e29"
-  instance_type          = "t2.micro"
-  key_name               = aws_key_pair.dhakacart_key.key_name
-  subnet_id              = aws_subnet.public_subnet.id
-  vpc_security_group_ids = [aws_security_group.k3s_sg.id]
-  associate_public_ip_address = true
-  
-  # Inject the K3s installation script
-  user_data = local_file.setup_script.content
 
   tags = {
-    Name = "DhakaCart-K3s-Server"
+    Name = "dhakacart-key"
+  }
+}
+
+# User Data Script
+data "template_file" "user_data" {
+  template = <<-EOF
+    #!/bin/bash
+    set -e
+    
+    apt-get update
+    apt-get upgrade -y
+    
+    # Install Docker
+    curl -fsSL https://get.docker.com -o get-docker.sh
+    sh get-docker.sh
+    usermod -aG docker ubuntu
+    systemctl enable docker
+    systemctl start docker
+    
+    # Install Docker Compose
+    curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+    chmod +x /usr/local/bin/docker-compose
+    
+    # Install nginx
+    apt-get install -y nginx
+    
+    mkdir -p /opt/dhakacart
+    
+    touch /var/log/user-data-complete.log
+    echo "User data completed at $(date)" >> /var/log/user-data-complete.log
+  EOF
+}
+
+# EC2 Instance
+resource "aws_instance" "dhakacart_instance" {
+  ami           = "ami-047126e50991d067b"
+  instance_type = "t3.medium"
+  
+  subnet_id                   = aws_subnet.dhakacart_public.id
+  vpc_security_group_ids      = [aws_security_group.dhakacart_sg.id]
+  associate_public_ip_address = true
+  key_name                    = aws_key_pair.dhakacart_key.key_name
+  
+  user_data = data.template_file.user_data.rendered
+
+  root_block_device {
+    volume_size           = 20
+    volume_type           = "gp3"
+    delete_on_termination = true
+    encrypted             = true
+  }
+
+  tags = {
+    Name = "dhakacart-instance"
   }
 }
 
 # Outputs
 output "instance_id" {
-  description = "EC2 Instance ID"
-  value       = aws_instance.k3s_node.id
+  value = aws_instance.dhakacart_instance.id
 }
 
 output "instance_public_ip" {
-  description = "Public IP address of the EC2 instance"
-  value       = aws_instance.k3s_node.public_ip
+  value = aws_instance.dhakacart_instance.public_ip
 }
 
 output "ssh_command" {
-  description = "SSH command to connect to the instance"
-  value       = "ssh -i ../dhakacart-key ubuntu@${aws_instance.k3s_node.public_ip}"
+  value = "ssh -i dhakacart-key ubuntu@${aws_instance.dhakacart_instance.public_ip}"
 }
 
 output "application_url" {
-  description = "Application URL"
-  value       = "http://${aws_instance.k3s_node.public_ip}"
+  value = "http://${aws_instance.dhakacart_instance.public_ip}"
 }

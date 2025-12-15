@@ -7,6 +7,8 @@
     <style>
         body { font-family: sans-serif; text-align: center; padding: 50px; }
         .status { padding: 20px; background: #e0f7fa; display: inline-block; border-radius: 8px; }
+        .connected { color: green; font-weight: bold; }
+        .failed { color: red; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -16,15 +18,21 @@
         <p>Backend Connection: <span id="api-status">Checking...</span></p>
     </div>
     <script>
-        // Use environment-based API URL for flexibility across environments
-        const apiUrl = window.API_URL || `${window.location.protocol}//${window.location.hostname}:5000`;
+        // Use the nginx proxied API endpoint
+        const apiUrl = '/api';
         
-        fetch(`${apiUrl}/`)
+        fetch(apiUrl)
             .then(res => res.json())
-            .then(data => document.getElementById('api-status').innerText = data.message)
+            .then(data => {
+                const statusEl = document.getElementById('api-status');
+                statusEl.innerText = '✓ ' + data.message;
+                statusEl.className = 'connected';
+            })
             .catch(err => {
                 console.error('API Connection Error:', err);
-                document.getElementById('api-status').innerText = "Failed to connect";
+                const statusEl = document.getElementById('api-status');
+                statusEl.innerText = '✗ Failed to connect';
+                statusEl.className = 'failed';
             });
     </script>
 </body>
